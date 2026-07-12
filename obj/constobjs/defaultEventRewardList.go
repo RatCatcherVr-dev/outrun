@@ -2189,7 +2189,7 @@ var DefaultAnimalEventRewardList = func() []obj.EventReward {
 
 
 func GetPendingEventRewards(oldParam, newParam int64) ([]obj.EventReward, int64) {
-	rewards := DefaultBirthdayEventRewardList()
+	rewards := DefaultEventRewardList()
 	pendingRewards := []obj.EventReward{}
 	oldParamRewardId := int64(8008135)
 	highestRewardIdSoFar := int64(-1)
