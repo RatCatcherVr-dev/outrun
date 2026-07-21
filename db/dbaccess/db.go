@@ -33,13 +33,13 @@ func Get(bucket, key string) ([]byte, error) {
 		if b == nil {
 			return errors.New("bucket '" + bucket + "' does not exist")
 		}
-		
+
 		v := b.Get([]byte(key))
 		if v == nil {
 			return errors.New("no value named '" + key + "' in bucket '" + bucket + "'")
 		}
-		
-		// Copy the byte slice so it remains valid outside the transaction
+
+		// Copy byte slice so it remains valid outside the bbolt read transaction
 		value = make([]byte, len(v))
 		copy(value, v)
 		return nil
@@ -93,5 +93,20 @@ func CheckIfDBSet() {
 			panic(err)
 		}
 		db = bdb
+
+		// Automatically create essential database buckets on launch if they don't exist
+		err = db.Update(func(tx *bolt.Tx) error {
+			defaultBuckets := []string{"players", "users", "teams"}
+			for _, b := range defaultBuckets {
+				_, err := tx.CreateBucketIfNotExists([]byte(b))
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			panic(err)
+		}
 	}
 }
