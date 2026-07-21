@@ -16,15 +16,11 @@ func Set(bucket, key string, value []byte) error {
 	CheckIfDBSet()
 	value = Compress(value) // compress the input first
 	err := db.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists([]byte(bucket))
+		b, err := tx.CreateBucketIfNotExists([]byte(bucket))
 		if err != nil {
 			return err
 		}
-		err = bucket.Put([]byte(key), value)
-		if err != nil {
-			return err
-		}
-		return nil
+		return b.Put([]byte(key), value)
 	})
 	return err
 }
@@ -34,23 +30,41 @@ func Get(bucket, key string) ([]byte, error) {
 	var value []byte
 	err := db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(bucket))
-		value = b.Get([]byte(key))
-		if value == nil {
+		if b == nil {
+			return errors.New("bucket '" + bucket + "' does not exist")
+		}
+		
+		v := b.Get([]byte(key))
+		if v == nil {
 			return errors.New("no value named '" + key + "' in bucket '" + bucket + "'")
 		}
+		
+		// Copy the byte slice so it remains valid outside the transaction
+		value = make([]byte, len(v))
+		copy(value, v)
 		return nil
 	})
+
+	if err != nil {
+		return nil, err
+	}
+
 	result, derr := Decompress(value) // decompress the result
 	if derr != nil {
 		return result, derr
 	}
-	return result, err
+	return result, nil
 }
 
 func Delete(bucket, key string) error {
 	CheckIfDBSet()
-	return db.View(func(tx *bolt.Tx) error {
-		return tx.Bucket([]byte(bucket)).Delete([]byte(key))
+	// Must use db.Update since deleting mutates the database
+	return db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(bucket))
+		if b == nil {
+			return nil // Bucket doesn't exist, nothing to delete
+		}
+		return b.Delete([]byte(key))
 	})
 }
 
@@ -58,8 +72,10 @@ func ForEachKey(bucket string, each func(k, v []byte) error) error {
 	CheckIfDBSet()
 	err := db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(bucket))
-		err2 := b.ForEach(each)
-		return err2
+		if b == nil {
+			return nil // Bucket doesn't exist yet
+		}
+		return b.ForEach(each)
 	})
 	return err
 }
