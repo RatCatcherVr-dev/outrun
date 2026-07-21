@@ -69,13 +69,15 @@ func Login(helper *helper.Helper) {
 		baseInfo.SetErrorMessage(emess.BadPassword)
 		player, err := db.GetPlayer(uid)
 		if err != nil {
-			// likely account that wasn't found, so let's tell them that:
-			response := responses.LoginCheckKey(baseInfo, "")
-			baseInfo.StatusCode = status.MissingPlayer
-			//response.BaseResponse = responses.NewBaseResponseV(baseInfo, request.Version)
-			helper.SendResponse(response)
-			helper.InternalErr("Error getting player", err)
-			return
+			// Account not found in DB: Auto-create player profile for this UID
+			helper.Out("Player " + uid + " not found, auto-creating profile...")
+			player = db.NewAccount()
+			player.ID = uid
+			err = db.SavePlayer(player)
+			if err != nil {
+				helper.InternalErr("Error saving auto-created player", err)
+				return
+			}
 		}
 		response := responses.LoginCheckKey(baseInfo, player.Key)
 		//response.BaseResponse = responses.NewBaseResponseV(baseInfo, request.Version)
@@ -90,13 +92,15 @@ func Login(helper *helper.Helper) {
 		// game is attempting to log in using key
 		player, err := db.GetPlayer(uid)
 		if err != nil {
-			// player might not exist
-			response := responses.LoginCheckKey(baseInfo, "")
-			baseInfo.StatusCode = status.MissingPlayer
-			//response.BaseResponse = responses.NewBaseResponseV(baseInfo, request.Version)
-			helper.SendResponse(response)
-			helper.InternalErr("Error getting player", err)
-			return
+			// Account not found in DB: Auto-create player profile for this UID
+			helper.Out("Player " + uid + " not found, auto-creating profile...")
+			player = db.NewAccount()
+			player.ID = uid
+			err = db.SavePlayer(player)
+			if err != nil {
+				helper.InternalErr("Error saving auto-created player", err)
+				return
+			}
 		}
 		if request.Password == logic.GenerateLoginPasskey(player) {
 			baseInfo.StatusCode = status.OK
@@ -369,7 +373,7 @@ func Migration(helper *helper.Helper) {
 			baseInfo.StatusCode = status.OK
 			baseInfo.SetErrorMessage(emess.OK)
 			migratePlayer.MigrationPassword = randChar("abcdefghijklmnopqrstuvwxyz1234567890", 10) //generate a brand new transfer ID
-			migratePlayer.UserPassword = ""                                                        //clear user password
+			migratePlayer.UserPassword = ""                                                         //clear user password
 			migratePlayer.LastLogin = time.Now().UTC().Unix()
 			err = db.SavePlayer(migratePlayer)
 			if err != nil {
