@@ -2,8 +2,9 @@ name: Go
 on:
   push:
     branches: [master, mysql_testing]
-jobs:
+  workflow_dispatch:
 
+jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
